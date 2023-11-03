@@ -109,6 +109,12 @@ in
       ];
     };
 
+    inputsFrom = lib.mkOption {
+      type = types.listOf types.package;
+      description = "A list of packages whose inputs will be exposed inside the developer environment";
+      default = [ ];
+    };
+
     shell = lib.mkOption {
       type = types.package;
       internal = true;
@@ -244,7 +250,21 @@ in
     packages = [
       # needed to make sure we can load libs
       pkgs.pkg-config
-    ];
+    ] ++ (
+      let
+        mergeInputs = attrPath:
+          lib.subtractLists config.inputsFrom (builtins.concatMap (lib.attrByPath attrPath [ ]) config.inputsFrom);
+        allInputs = builtins.filter lib.isDerivation (builtins.concatMap mergeInputs [
+          [ "buildInputs" ]
+          [ "nativeBuildInputs" ]
+          [ "propagatedBuildInputs" ]
+          [ "propagatedNativeBuildInputs" ]
+          [ "stdenv" "initialPath" ]
+          [ "stdenv" "defaultBuildInputs" ]
+          [ "stdenv" "defaultNativeBuildInputs" ]
+        ]);
+      in allInputs
+      );
 
     enterShell = ''
       export PS1="\[\e[0;34m\](devenv)\[\e[0m\] ''${PS1-}"
